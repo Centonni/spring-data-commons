@@ -24,7 +24,7 @@ package org.springframework.data.transaction;
  * @see SpringTransactionSynchronizationManager
  * @since 1.6
  */
-public interface SynchronizationManager {
+interface SynchronizationManager {
 
 	void initSynchronization();
 

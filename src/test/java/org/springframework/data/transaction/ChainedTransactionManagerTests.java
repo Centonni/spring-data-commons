@@ -33,6 +33,8 @@ import org.springframework.transaction.UnexpectedRollbackException;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 /**
+ * Integration tests for {@link ChainedTransactionManager}.
+ * 
  * @author Michael Hunger
  * @author Oliver Gierke
  * @since 1.6

@@ -1,5 +1,5 @@
-/**
- * Copyright 2011 the original author or authors.
+/*
+ * Copyright 2011-2013 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.springframework.data.transaction;
 
 import java.util.Collections;
@@ -27,10 +26,14 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.util.Assert;
 
 /**
- * @author mh
- * @since 14.02.11
+ * {@link TransactionStatus} implementation to orchestrate {@link TransactionStatus} instances for multiple
+ * {@link PlatformTransactionManager} instances.
+ * 
+ * @author Michael Hunger
+ * @author Oliver Gierke
+ * @since 1.6
  */
-public class MultiTransactionStatus implements TransactionStatus {
+class MultiTransactionStatus implements TransactionStatus {
 
 	private final PlatformTransactionManager mainTransactionManager;
 	private final Map<PlatformTransactionManager, TransactionStatus> transactionStatuses = Collections
@@ -38,18 +41,19 @@ public class MultiTransactionStatus implements TransactionStatus {
 
 	private boolean newSynchonization;
 
+	/**
+	 * Creates a new {@link MultiTransactionStatus} for the given {@link PlatformTransactionManager}.
+	 * 
+	 * @param mainTransactionManager must not be {@literal null}.
+	 */
 	public MultiTransactionStatus(PlatformTransactionManager mainTransactionManager) {
 
-		Assert.notNull(mainTransactionManager);
+		Assert.notNull(mainTransactionManager, "TransactionManager must not be null!");
 		this.mainTransactionManager = mainTransactionManager;
 	}
 
-	protected Map<PlatformTransactionManager, TransactionStatus> getTransactionStatuses() {
+	public Map<PlatformTransactionManager, TransactionStatus> getTransactionStatuses() {
 		return transactionStatuses;
-	}
-
-	private TransactionStatus getMainTransactionStatus() {
-		return transactionStatuses.get(mainTransactionManager);
 	}
 
 	public void setNewSynchonization() {
@@ -64,25 +68,34 @@ public class MultiTransactionStatus implements TransactionStatus {
 		getTransactionStatuses().put(transactionManager, transactionManager.getTransaction(definition));
 	}
 
-	public boolean isRollbackOnly() {
-		return getMainTransactionStatus().isRollbackOnly();
-	}
-
-	public boolean isCompleted() {
-		return getMainTransactionStatus().isCompleted();
-	}
-
-	void commit(PlatformTransactionManager transactionManager) {
+	public void commit(PlatformTransactionManager transactionManager) {
 		TransactionStatus transactionStatus = getTransactionStatus(transactionManager);
 		transactionManager.commit(transactionStatus);
 	}
 
-	private TransactionStatus getTransactionStatus(PlatformTransactionManager transactionManager) {
-		return this.getTransactionStatuses().get(transactionManager);
+	/**
+	 * Rolls back the {@link TransactionStatus} registered for the given {@link PlatformTransactionManager}.
+	 * 
+	 * @param transactionManager must not be {@literal null}.
+	 */
+	public void rollback(PlatformTransactionManager transactionManager) {
+		transactionManager.rollback(getTransactionStatus(transactionManager));
 	}
 
-	void rollback(PlatformTransactionManager transactionManager) {
-		transactionManager.rollback(getTransactionStatus(transactionManager));
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.transaction.TransactionStatus#isRollbackOnly()
+	 */
+	public boolean isRollbackOnly() {
+		return getMainTransactionStatus().isRollbackOnly();
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.transaction.TransactionStatus#isCompleted()
+	 */
+	public boolean isCompleted() {
+		return getMainTransactionStatus().isCompleted();
 	}
 
 	/*
@@ -150,6 +163,14 @@ public class MultiTransactionStatus implements TransactionStatus {
 		for (TransactionStatus transactionStatus : transactionStatuses.values()) {
 			transactionStatus.flush();
 		}
+	}
+
+	private TransactionStatus getMainTransactionStatus() {
+		return transactionStatuses.get(mainTransactionManager);
+	}
+
+	private TransactionStatus getTransactionStatus(PlatformTransactionManager transactionManager) {
+		return this.getTransactionStatuses().get(transactionManager);
 	}
 
 	private static class SavePoints {

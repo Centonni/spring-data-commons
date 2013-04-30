@@ -35,13 +35,22 @@ import org.springframework.transaction.UnexpectedRollbackException;
 import org.springframework.util.Assert;
 
 /**
+ * {@link PlatformTransactionManager} implementation that orchestrates transaction creation, commits and rollbacks to a
+ * list of delegates. Using this implementation assumes that errors causing a transaction rollback will usually happen
+ * before the transaction completion or during the commit of the most inner {@link PlatformTransactionManager}.
+ * <p />
+ * The configured instances will start transactions in the order given and commit/rollback in <em>reverse</em> order,
+ * which means the {@link PlatformTransactionManager} most likely to break the transaction should be the <em>last</em>
+ * in the list configured. A {@link PlatformTransactionManager} throwing an exception during commit will automatically
+ * cause the remaining transaction managers to roll back instead of committing.
+ * 
  * @author Michael Hunger
  * @author Oliver Gierke
  * @since 1.6
  */
 public class ChainedTransactionManager implements PlatformTransactionManager {
 
-	private final static Logger logger = LoggerFactory.getLogger(ChainedTransactionManager.class);
+	private final static Logger LOGGER = LoggerFactory.getLogger(ChainedTransactionManager.class);
 
 	private final List<PlatformTransactionManager> transactionManagers;
 	private final SynchronizationManager synchronizationManager;
@@ -62,7 +71,7 @@ public class ChainedTransactionManager implements PlatformTransactionManager {
 	 * @param synchronizationManager must not be {@literal null}.
 	 * @param transactionManagers must not be {@literal null} or empty.
 	 */
-	public ChainedTransactionManager(SynchronizationManager synchronizationManager,
+	ChainedTransactionManager(SynchronizationManager synchronizationManager,
 			PlatformTransactionManager... transactionManagers) {
 
 		Assert.notNull(synchronizationManager, "SynchronizationManager must not be null!");
@@ -102,7 +111,7 @@ public class ChainedTransactionManager implements PlatformTransactionManager {
 						transactionManager.rollback(transactionStatuses.get(transactionManager));
 					}
 				} catch (Exception ex2) {
-					logger.warn("Rollback exception (" + transactionManager + ") " + ex2.getMessage(), ex2);
+					LOGGER.warn("Rollback exception (" + transactionManager + ") " + ex2.getMessage(), ex2);
 				}
 			}
 
@@ -116,6 +125,10 @@ public class ChainedTransactionManager implements PlatformTransactionManager {
 		return mts;
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.transaction.PlatformTransactionManager#commit(org.springframework.transaction.TransactionStatus)
+	 */
 	public void commit(TransactionStatus status) throws TransactionException {
 
 		MultiTransactionStatus multiTransactionStatus = (MultiTransactionStatus) status;
@@ -143,7 +156,7 @@ public class ChainedTransactionManager implements PlatformTransactionManager {
 				try {
 					multiTransactionStatus.rollback(transactionManager);
 				} catch (Exception ex) {
-					logger.warn("Rollback exception (after commit) (" + transactionManager + ") " + ex.getMessage(), ex);
+					LOGGER.warn("Rollback exception (after commit) (" + transactionManager + ") " + ex.getMessage(), ex);
 				}
 			}
 		}
@@ -158,7 +171,6 @@ public class ChainedTransactionManager implements PlatformTransactionManager {
 					: HeuristicCompletionException.STATE_MIXED;
 			throw new HeuristicCompletionException(transactionState, commitException);
 		}
-
 	}
 
 	/*
@@ -180,7 +192,7 @@ public class ChainedTransactionManager implements PlatformTransactionManager {
 					rollbackException = ex;
 					rollbackExceptionTransactionManager = transactionManager;
 				} else {
-					logger.warn("Rollback exception (" + transactionManager + ") " + ex.getMessage(), ex);
+					LOGGER.warn("Rollback exception (" + transactionManager + ") " + ex.getMessage(), ex);
 				}
 			}
 		}
